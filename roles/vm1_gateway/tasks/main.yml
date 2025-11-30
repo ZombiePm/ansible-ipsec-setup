@@ -1,0 +1,126 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install required packages
+  apt:
+    name:
+      - strongswan
+      - strongswan-pki
+      - iptables-persistent
+    state: present
+
+- name: Configure network interfaces
+  include_tasks: network.yml
+
+- name: Create IPSEC PKI directory
+  file:
+    path: /etc/ipsec-pki
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Generate CA private key
+  command: >
+    ipsec pki --gen --type rsa --size 4096 --outform pem
+  args:
+    chdir: /etc/ipsec-pki
+    creates: /etc/ipsec-pki/caKey.pem
+  register: ca_key_generated
+
+- name: Generate CA certificate
+  command: >
+    ipsec pki --self --ca --lifetime 3650 
+    --in /etc/ipsec-pki/caKey.pem 
+    --type rsa 
+    --dn "CN={{ ipsec_ca_name }}" 
+    --outform pem > /etc/ipsec-pki/caCert.pem
+  args:
+    chdir: /etc/ipsec-pki
+    creates: /etc/ipsec-pki/caCert.pem
+  when: ca_key_generated.changed
+
+- name: Generate server private key
+  command: >
+    ipsec pki --gen --type rsa --size 4096 --outform pem > /etc/ipsec-pki/serverKey.pem
+  args:
+    chdir: /etc/ipsec-pki
+    creates: /etc/ipsec-pki/serverKey.pem
+
+- name: Generate server certificate
+  command: >
+    ipsec pki --pub --in /etc/ipsec-pki/serverKey.pem --type rsa |
+    ipsec pki --issue --lifetime 1825 
+    --cacert /etc/ipsec-pki/caCert.pem 
+    --cakey /etc/ipsec-pki/caKey.pem 
+    --dn "CN={{ vm1_internal_ip }}" 
+    --san "{{ vm1_internal_ip }}" 
+    --outform pem > /etc/ipsec-pki/serverCert.pem
+  args:
+    chdir: /etc/ipsec-pki
+    creates: /etc/ipsec-pki/serverCert.pem
+
+- name: Copy certificates to IPSEC directories
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "/etc/ipsec-pki/serverKey.pem", dest: "/etc/ipsec.d/private/{{ ipsec_server_key_name }}", mode: '0600' }
+    - { src: "/etc/ipsec-pki/serverCert.pem", dest: "/etc/ipsec.d/certs/{{ ipsec_server_cert_name }}", mode: '0644' }
+    - { src: "/etc/ipsec-pki/caCert.pem", dest: "/etc/ipsec.d/cacerts/caCert.pem", mode: '0644' }
+
+- name: Configure IPSEC
+  template:
+    src: ipsec.conf.j2
+    dest: /etc/ipsec.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart strongswan
+
+- name: Configure IPSEC secrets
+  copy:
+    content: |
+      : RSA /etc/ipsec.d/private/{{ ipsec_server_key_name }}
+    dest: /etc/ipsec.secrets
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart strongswan
+
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Configure iptables rules
+  template:
+    src: iptables.rules.v4.j2
+    dest: /etc/iptables/rules.v4
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply iptables rules
+  command: iptables-restore /etc/iptables/rules.v4
+
+- name: Ensure IPSEC directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/ipsec.d/certs
+    - /etc/ipsec.d/private
+    - /etc/ipsec.d/cacerts

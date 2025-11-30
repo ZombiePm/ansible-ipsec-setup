@@ -1,0 +1,24 @@
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Allow forwarding for IPSEC tunnel
+-A FORWARD -s {{ internal_net_cidr }} -j ACCEPT
+-A FORWARD -d {{ internal_net_cidr }} -j ACCEPT
+
+COMMIT
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+# DNAT: Forward port {{ forward_port }} from VM1 to VM2
+-A PREROUTING -p tcp --dport {{ forward_port }} -j DNAT --to-destination {{ vm2_internal_ip }}:{{ nginx_port }}
+
+# Masquerade traffic from internal network going out through external interface
+-A POSTROUTING -s {{ internal_net_cidr }} -o {{ vm1_external_iface }} -j MASQUERADE
+
+COMMIT

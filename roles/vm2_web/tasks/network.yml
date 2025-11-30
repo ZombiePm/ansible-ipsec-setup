@@ -1,0 +1,17 @@
+---
+- name: Configure network interface
+  template:
+    src: interfaces.vm2.j2
+    dest: /etc/network/interfaces.d/50-internal.cfg
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart networking
+
+- name: Ensure interface is up
+  command: ip link set {{ vm2_internal_iface }} up
+  ignore_errors: yes
+
+- name: Assign IP address to interface
+  command: ip addr add {{ vm2_internal_ip }}/24 dev {{ vm2_internal_iface }}
+  ignore_errors: yes

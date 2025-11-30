@@ -1,0 +1,23 @@
+---
+# Internal network configuration
+internal_net_cidr: "10.1.0.0/24"
+vm1_internal_ip: "10.1.0.1"
+vm2_internal_ip: "10.1.0.2"
+
+# External network interface on VM1 (replace with actual interface name)
+vm1_external_iface: "enp3s0"
+
+# Internal network interfaces
+vm1_internal_iface: "enp8s0"
+vm2_internal_iface: "ens18"
+
+# Port to forward from VM1 to VM2
+forward_port: 446
+nginx_port: 443
+
+# IPSEC configuration
+ipsec_ca_name: "MyVPN CA"
+ipsec_server_cert_name: "serverCert.pem"
+ipsec_client_cert_name: "clientCert.pem"
+ipsec_server_key_name: "serverKey.pem"
+ipsec_client_key_name: "clientKey.pem"

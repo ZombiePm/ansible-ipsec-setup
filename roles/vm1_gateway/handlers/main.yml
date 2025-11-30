@@ -1,0 +1,10 @@
+---
+- name: restart strongswan
+  systemd:
+    name: strongswan
+    state: restarted
+
+- name: restart networking
+  systemd:
+    name: networking
+    state: restarted

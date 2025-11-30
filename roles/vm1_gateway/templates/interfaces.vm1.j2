@@ -1,0 +1,5 @@
+# Internal interface configuration for VM1
+auto {{ vm1_internal_iface }}
+iface {{ vm1_internal_iface }} inet static
+    address {{ vm1_internal_ip }}
+    netmask 255.255.255.0

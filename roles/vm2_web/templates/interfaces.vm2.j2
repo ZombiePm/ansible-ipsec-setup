@@ -1,0 +1,6 @@
+# Internal interface configuration for VM2
+auto {{ vm2_internal_iface }}
+iface {{ vm2_internal_iface }} inet static
+    address {{ vm2_internal_ip }}
+    netmask 255.255.255.0
+    gateway {{ vm1_internal_ip }}

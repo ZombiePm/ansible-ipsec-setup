@@ -1,0 +1,10 @@
+---
+- hosts: vm1
+  become: true
+  roles:
+    - vm1_gateway
+
+- hosts: vm2
+  become: true
+  roles:
+    - vm2_web
